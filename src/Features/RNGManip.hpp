@@ -7,4 +7,6 @@ namespace RngManip {
 	void loadData(const char *filename);
 
 	void viewPunch(QAngle *offset);
+
+	void init();
 }

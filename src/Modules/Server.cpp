@@ -903,6 +903,8 @@ bool Server::Init() {
 	sv_maxvelocity = Variable("sv_maxvelocity");
 	sv_gravity = Variable("sv_gravity");
 
+	RngManip::init();
+
 	return this->hasLoaded = this->g_GameMovement && this->g_ServerGameDLL;
 }
 CON_COMMAND(sar_coop_reset_progress, "sar_coop_reset_progress - resets all coop progress\n") {
