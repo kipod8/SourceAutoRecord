@@ -175,6 +175,9 @@ void PlayerTrace::AddPoint(std::string trace_name, void *player, int slot, bool 
 	if (slot == 0) {
 		PortalLocations portals = ConstructPortalLocations();
 		trace.portals.push_back(portals);
+
+		VphysLocationList vphysLocations = ConstructVphysLocationList();
+		trace.vphysLocations.push_back(vphysLocations);
 	}
 }
 Trace *PlayerTrace::GetTrace(std::string trace_name) {
@@ -663,6 +666,49 @@ HitboxList PlayerTrace::ConstructHitboxList(Vector center) const {
 	return list;
 }
 
+VphysLocationList PlayerTrace::ConstructVphysLocationList() const {
+	VphysLocationList locationList;
+
+	for (int i = 0; i < Offsets::NUM_ENT_ENTRIES; ++i) {
+		void *ent = server->m_EntPtrArray[i].m_pEntity;
+		if (!ent) continue;
+		auto className = server->GetEntityClassName(ent);
+
+		const char *allowedClassNames[] = {
+			"player",
+			"prop_physics",
+			"func_physbox",
+			"prop_weighted_cube",
+			"prop_monster_box",
+			"npc_security_camera",
+			"npc_portal_turret_floor",
+			"func_brush",
+			"prop_dynamic",
+		};
+
+		int size = sizeof(allowedClassNames) / sizeof(allowedClassNames[0]);
+		bool isAllowedEntity = false;
+
+		for (int i = 0; i < size; i++) {
+			if (strcmp(className, allowedClassNames[i]) == 0) {
+				isAllowedEntity = true;
+				break;
+			}
+		}
+		if (!isAllowedEntity) continue;
+
+		ICollideable *coll = &SE(ent)->collision();
+
+		locationList.locations[i] = {
+			std::string(className),
+			coll->GetCollisionOrigin(),
+			coll->GetCollisionAngles()
+		};
+	}
+
+	return locationList;
+}
+
 PortalLocations PlayerTrace::ConstructPortalLocations() const {
 	if (!sar_trace_portal_record.GetBool()) return PortalLocations{};
 
@@ -1010,4 +1056,101 @@ CON_COMMAND(sar_trace_export, "sar_trace_export <filename> [trace name] - Export
 	fclose(f);
 
 	console->Print("Trace successfully exported to '%s'!\n", filename.c_str());
+}
+
+CON_COMMAND(sar_trace_compare, "sar_trace_compare <trace 1> <trace 2> - compares two given recorded traces and shows where differences occured.\n") {
+	if (args.ArgC() != 3)
+		return console->Print(sar_trace_compare.ThisPtr()->m_pszHelpString);
+
+	auto trace1Name = args[1];
+	auto trace2Name = args[2];
+
+	auto trace1 = playerTrace->GetTrace(trace1Name);
+	auto trace2 = playerTrace->GetTrace(trace2Name);
+	if (trace1 == nullptr || trace2 == nullptr) {
+		return console->Print("Trace with name \"%s\" does not exist.\n", trace1 == nullptr ? trace1Name : trace2Name);
+	}
+
+	console->Print("Comparing traces \"%s\" and \"%s\":\n", trace1Name, trace2Name);
+
+	const auto goodColor = Color(110, 247, 76);
+	const auto badColor = Color(255, 100, 100);
+
+	auto startTick1 = tickInternalToUser(0, *trace1);
+	auto startTick2 = tickInternalToUser(0, *trace2);
+	if (startTick1 != startTick2) {
+		console->ColorMsg(badColor, "Mismatch in starting tick: %d <-> %d\n", startTick1, startTick2);
+		console->ColorMsg(badColor, "Comparison cancelled.\n");
+		return;
+	}
+
+	auto vphysList1 = trace1->vphysLocations;
+	auto vphysList2 = trace2->vphysLocations;
+	if (vphysList1.size() != vphysList2.size()) {
+		console->ColorMsg(badColor, "Mismatch in trace length: %d <-> %d\n", vphysList1.size(), vphysList2.size());
+		return;
+	}
+
+	int mismatchCount = 0;
+
+	auto maxLength = std::min(vphysList1.size(), vphysList2.size());
+	for (size_t i = 0; i < maxLength; ++i) {
+
+		auto userTick = tickInternalToUser(i, *trace1);
+
+		auto locationsList1 = vphysList1[i].locations;
+		auto locationsList2 = vphysList2[i].locations;
+
+		for (int ent_index = 0; ent_index < Offsets::NUM_ENT_ENTRIES; ++ent_index) {
+			auto location1Entry = locationsList1.find(ent_index);
+			auto location2Entry = locationsList2.find(ent_index);
+
+			auto location1Valid = (location1Entry != locationsList1.end());
+			auto location2Valid = (location2Entry != locationsList2.end());
+
+			if (!location1Valid && !location2Valid) {
+				continue;
+			} else if (!location1Valid || !location2Valid) {
+				auto entityName = location1Valid ? (*location1Entry).second.className.c_str() : (*location2Entry).second.className.c_str();
+				console->ColorMsg(badColor, "Tick %d Slot %d: entity %s exists in trace \"%s\", but not in trace \"%s\"\n",
+					i, ent_index, entityName, location1Valid ? trace1Name : trace2Name, location2Valid ? trace1Name : trace2Name);
+				mismatchCount++;
+				continue;
+			} 
+
+			bool mismatch = false;
+
+			auto location1 = (*location1Entry).second;
+			auto location2 = (*location2Entry).second;
+
+			if (location1.className != location2.className) {
+				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in entity types:\n  %s <-> %s\n",
+					i, ent_index, location1.className.c_str(), location2.className.c_str());
+				mismatch = true;
+			}
+
+			if (location1.pos != location2.pos) {
+				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in position of entity %s:\n  (%.9f %.9f %.9f) <-> (%.9f %.9f %.9f)\n",
+					i, ent_index, location1.className.c_str(), 
+					location1.pos.x, location1.pos.y, location1.pos.z, 
+					location2.pos.x, location2.pos.y, location2.pos.z
+				);
+				mismatch = true;
+			}
+
+			if (QAngleToVector(location1.ang) != QAngleToVector(location2.ang)) {
+				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in rotation of entity %s:\n  (%.9f %.9f %.9f) <-> (%.9f %.9f %.9f)\n",
+					i, ent_index, location1.className.c_str(), 
+					location1.ang.x, location1.ang.y, location1.ang.z, 
+					location2.ang.x, location2.ang.y, location2.ang.z
+				);
+				mismatch = true;
+			}
+
+			if (mismatch) {
+				mismatchCount++;
+			}
+		}
+	}
+	console->Print("Checked %d ticks, found mismatches: %d.\n", maxLength, mismatchCount);
 }

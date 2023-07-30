@@ -22,6 +22,15 @@ struct HitboxList {
 	std::vector<ObbBox> obb;
 };
 
+struct VphysLocationList {
+	struct Location {
+		std::string className;
+		Vector pos;
+		QAngle ang;
+	};
+	std::map<int, Location> locations;
+};
+
 struct PortalLocations {
 	struct PortalLocation {
 		Vector pos;
@@ -49,6 +58,7 @@ struct Trace {
 	// Only have one of those, store all the portals in the map
 	// indiscriminately of player (also ones placed by pedestals etc)
 	std::vector<PortalLocations> portals;
+	std::vector<VphysLocationList> vphysLocations;
 };
 
 class PlayerTrace : public Feature {
@@ -86,6 +96,8 @@ public:
 	void TeleportAt(std::string trace_name, int slot, int tick, bool eye);
 	// Construct a list of the hitboxes of all entities near a point
 	HitboxList ConstructHitboxList(Vector center) const;
+	// Construct a list of locations of all dynamic entities for verification purposes
+	VphysLocationList ConstructVphysLocationList() const;
 	// Construct a list of all portals in the map
 	PortalLocations ConstructPortalLocations() const;
 	// Draw info about all traces to a HUD context
