@@ -682,8 +682,8 @@ VphysLocationList PlayerTrace::ConstructVphysLocationList() const {
 			"prop_monster_box",
 			"npc_security_camera",
 			"npc_portal_turret_floor",
-			"func_brush",
-			"prop_dynamic",
+			//"func_brush",
+			//"prop_dynamic",
 		};
 
 		int size = sizeof(allowedClassNames) / sizeof(allowedClassNames[0]);
@@ -1113,7 +1113,7 @@ CON_COMMAND(sar_trace_compare, "sar_trace_compare <trace 1> <trace 2> - compares
 			} else if (!location1Valid || !location2Valid) {
 				auto entityName = location1Valid ? (*location1Entry).second.className.c_str() : (*location2Entry).second.className.c_str();
 				console->ColorMsg(badColor, "Tick %d Slot %d: entity %s exists in trace \"%s\", but not in trace \"%s\"\n",
-					i, ent_index, entityName, location1Valid ? trace1Name : trace2Name, location2Valid ? trace1Name : trace2Name);
+					userTick, ent_index, entityName, location1Valid ? trace1Name : trace2Name, location2Valid ? trace1Name : trace2Name);
 				mismatchCount++;
 				continue;
 			} 
@@ -1125,13 +1125,13 @@ CON_COMMAND(sar_trace_compare, "sar_trace_compare <trace 1> <trace 2> - compares
 
 			if (location1.className != location2.className) {
 				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in entity types:\n  %s <-> %s\n",
-					i, ent_index, location1.className.c_str(), location2.className.c_str());
+					userTick, ent_index, location1.className.c_str(), location2.className.c_str());
 				mismatch = true;
 			}
 
 			if (location1.pos != location2.pos) {
 				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in position of entity %s:\n  (%.9f %.9f %.9f) <-> (%.9f %.9f %.9f)\n",
-					i, ent_index, location1.className.c_str(), 
+					userTick, ent_index, location1.className.c_str(), 
 					location1.pos.x, location1.pos.y, location1.pos.z, 
 					location2.pos.x, location2.pos.y, location2.pos.z
 				);
@@ -1140,7 +1140,7 @@ CON_COMMAND(sar_trace_compare, "sar_trace_compare <trace 1> <trace 2> - compares
 
 			if (QAngleToVector(location1.ang) != QAngleToVector(location2.ang)) {
 				console->ColorMsg(badColor, "Tick %d Slot %d: mismatch in rotation of entity %s:\n  (%.9f %.9f %.9f) <-> (%.9f %.9f %.9f)\n",
-					i, ent_index, location1.className.c_str(), 
+					userTick, ent_index, location1.className.c_str(), 
 					location1.ang.x, location1.ang.y, location1.ang.z, 
 					location2.ang.x, location2.ang.y, location2.ang.z
 				);
