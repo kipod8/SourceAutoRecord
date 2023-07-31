@@ -161,6 +161,9 @@ void PlayerTrace::AddPoint(std::string trace_name, void *player, int slot, bool 
 		camera->GetEyePos<true>(slot, eyepos, angles);
 	}
 
+	this->EmitLog(Utils::ssprintf("ProcessMovement(%d)", session->GetTick()).c_str());
+	this->EmitLog(Utils::ssprintf("player @ (%.6f,%.6f,%.6f)", pos.x, pos.y, pos.z).c_str());
+
 	HitboxList hitboxes = ConstructHitboxList(pos);
 
 	trace.positions[slot].push_back(pos);
@@ -682,8 +685,8 @@ VphysLocationList PlayerTrace::ConstructVphysLocationList() const {
 			"prop_monster_box",
 			"npc_security_camera",
 			"npc_portal_turret_floor",
-			//"func_brush",
-			//"prop_dynamic",
+			"func_brush",
+			"prop_dynamic",
 		};
 
 		int size = sizeof(allowedClassNames) / sizeof(allowedClassNames[0]);
@@ -1153,4 +1156,65 @@ CON_COMMAND(sar_trace_compare, "sar_trace_compare <trace 1> <trace 2> - compares
 		}
 	}
 	console->Print("Checked %d ticks, found mismatches: %d.\n", maxLength, mismatchCount);
+
+	if (mismatchCount > 0) {
+		console->Print("Mismatch detected: dumping trace logs.\n");
+		std::string dump_1_name = Utils::ssprintf("%s_dump.txt", trace1Name);
+		FILE *f1 = fopen(dump_1_name.c_str(), "w");
+		if (f1) {
+			for (auto line : trace1->log_lines) {
+				fprintf(f1, "%s\n", line.c_str());
+			}
+			fclose(f1);
+			console->Print("Trace '%s' log dumped to '%s'\n", trace1Name, dump_1_name.c_str());
+		}
+		std::string dump_2_name = Utils::ssprintf("%s_dump.txt", trace2Name);
+		FILE *f2 = fopen(dump_2_name.c_str(), "w");
+		if (f2) {
+			for (auto line : trace2->log_lines) {
+				fprintf(f2, "%s\n", line.c_str());
+			}
+			fclose(f2);
+			console->Print("Trace '%s' log dumped to '%s'\n", trace2Name, dump_2_name.c_str());
+		}
+	}
+}
+
+void PlayerTrace::EnterLogScope(const char *name) {
+	if (!playerTrace->ShouldRecord()) return;
+	auto trace = this->GetTrace(sar_trace_record.GetString());
+	if (!trace) return;
+	std::string line = "";
+	for (unsigned i = 0; i < trace->log_scope_stack.size(); ++i) {
+		line += "  ";
+	}
+	line += Utils::ssprintf("[ENTER %s]", name);
+	trace->log_lines.push_back(line);
+	trace->log_scope_stack.push_back({name});
+}
+
+void PlayerTrace::ExitLogScope() {
+	if (!playerTrace->ShouldRecord()) return;
+	auto trace = this->GetTrace(sar_trace_record.GetString());
+	if (!trace) return;
+	std::string line = "";
+	if (trace->log_scope_stack.size() == 0) return; // trace probably stopped/started halfway through a log scope
+	for (unsigned i = 0; i < trace->log_scope_stack.size() - 1; ++i) {
+		line += "  ";
+	}
+	line += Utils::ssprintf("[EXIT %s]", trace->log_scope_stack.back().c_str());
+	trace->log_lines.push_back(line);
+	trace->log_scope_stack.pop_back();
+}
+
+void PlayerTrace::EmitLog(const char *msg) {
+	if (!playerTrace->ShouldRecord()) return;
+	auto trace = this->GetTrace(sar_trace_record.GetString());
+	if (!trace) return;
+	std::string line = "";
+	for (unsigned i = 0; i < trace->log_scope_stack.size(); ++i) {
+		line += "  ";
+	}
+	line += msg;
+	trace->log_lines.push_back(line);
 }
