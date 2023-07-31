@@ -553,6 +553,16 @@ DECL_DETOUR_T(void, AirAccelerate, Vector *wishdir, float wishspeed, float accel
 }
 Hook g_AirAccelerate_Hook(AirAccelerate_Hook);
 
+extern Hook g_RandomSeed_Hook;
+void (*RandomSeed)(int);
+void RandomSeed_Hook(int seed) {
+	// TODO: this is completely illegitimate, but useful while working on other stuff. Revisit before merge!
+	g_RandomSeed_Hook.Disable();
+	RandomSeed(1);
+	g_RandomSeed_Hook.Enable();
+}
+Hook g_RandomSeed_Hook(RandomSeed_Hook);
+
 void RngManip::init() {
 #ifdef _WIN32
 	uintptr_t PhysFrame = Memory::Scan(server->Name(), "55 8B EC 8B 0D ? ? ? ? 83 EC 14 53 56 57 85 C9 0F 84 ? ? ? ? 80 3D ? ? ? ? 00 0F 85 ? ? ? ? F3 0F 10 4D 08 0F 2F 0D ? ? ? ? F3 0F 10 15 ? ? ? ? 0F 57 C0");
@@ -618,6 +628,9 @@ void RngManip::init() {
 	AirAccelerate = (decltype(AirAccelerate))Memory::Scan(server->Name(), "56 53 83 EC 14 8B 5C 24 ? 8B 74 24 ? 8B 43 ? 80 B8 ? ? ? ? 00");
 	g_AirAccelerate_Hook.SetFunc(AirAccelerate);
 #endif
+
+	RandomSeed = Memory::GetSymbolAddress<decltype(RandomSeed)>(Memory::GetModuleHandleByName(tier1->Name()), "RandomSeed");
+	g_RandomSeed_Hook.SetFunc(RandomSeed);
 }
 
 ON_EVENT(SESSION_END) {
