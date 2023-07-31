@@ -1221,6 +1221,9 @@
     <ClInclude Include="Utils\SDK\ITexture.hpp">
       <Filter>SourceAutoRecord\Utils\SDK</Filter>
     </ClInclude>
+    <ClInclude Include="Utils\SDK\IVP.hpp">
+      <Filter>SourceAutoRecord\Utils\SDK</Filter>
+    </ClInclude>
     <ClInclude Include="Utils\SDK.hpp">
       <Filter>SourceAutoRecord\Utils</Filter>
     </ClInclude>

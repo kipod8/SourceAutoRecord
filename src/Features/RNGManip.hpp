@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "Utils/SDK.hpp"
 
 namespace RngManip {
@@ -9,4 +10,7 @@ namespace RngManip {
 	void viewPunch(QAngle *offset);
 
 	void init();
+
+	void EnterProcessMovement(void *gamemovement, CMoveData *move);
+	void ExitProcessMovement(CMoveData *move);
 }

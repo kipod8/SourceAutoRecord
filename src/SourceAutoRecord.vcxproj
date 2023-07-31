@@ -480,6 +480,7 @@
     <ClInclude Include="Utils\SDK\Trace.hpp" />
     <ClInclude Include="Utils\SDK\MeshBuilder.hpp" />
     <ClInclude Include="Utils\SDK\ITexture.hpp" />
+    <ClInclude Include="Utils\SDK\IVP.hpp" />
     <ClInclude Include="Variable.hpp" />
   </ItemGroup>
   <ItemGroup>
